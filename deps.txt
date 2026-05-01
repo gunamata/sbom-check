@@ -1,27 +1,6 @@
 # Impacted package/version list
 # Format: <package_name> <version>
 # Versions with or without a leading 'v' are both accepted.
-pgserve 1.1.11
-pgserve 1.1.12
-pgserve 1.1.13
-pgserve 1.1.14
-@automagik/genie 4.260421.33
-@automagik/genie 4.260421.34
-@automagik/genie 4.260421.35
-@automagik/genie 4.260421.36
-@automagik/genie 4.260421.37
-@automagik/genie 4.260421.38
-@automagik/genie 4.260421.39
-@automagik/genie 4.260421.40
-@fairwords/websocket 1.0.38
-@fairwords/websocket 1.0.39
-@fairwords/loopback-connector-es 1.4.3
-@fairwords/loopback-connector-es 1.4.4
-@openwebconcept/design-tokens 1.0.1
-@openwebconcept/design-tokens 1.0.3
-@openwebconcept/theme-owc 1.0.1
-@openwebconcept/theme-owc 1.0.3
-xinference 2.6.0
-xinference 2.6.1
-xinference 2.6.2
+lightning 2.6.2
+lightning 2.6.3 
 

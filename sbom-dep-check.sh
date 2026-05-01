@@ -55,6 +55,9 @@ if [ ${#PKG_NAMES[@]} -eq 0 ]; then
     exit 1
 fi
 
+# Report file with timestamp
+REPORT_FILE="sbom-report-$(date +%Y%m%d-%H%M%S).txt"
+
 # ---------------------------------------------------------------------------
 # Match helper — returns "found" or "not_found"
 # cosign --output json emits one JSON object per attestation, so saved files
@@ -80,7 +83,7 @@ check_sbom() {
     local repo="$1" image_name="$2" digest="$3" platform_str="$4" tag="$5"
     local output_file="${image_name}-${tag}-${platform_str}-sbom.json"
 
-    echo "  Fetching SBOM for ${image_name} @ ${platform_str} (${digest})..."
+    # echo "  Fetching SBOM for ${image_name} @ ${platform_str} (${digest})..."
 
     cosign verify-attestation \
         --key "${COSIGN_KEY}" \
@@ -92,12 +95,12 @@ check_sbom() {
         > "${output_file}" || true
 
     if [ ! -s "${output_file}" ] || [ "$(cat "${output_file}")" = "null" ]; then
-        echo "  [WARN] No CycloneDX SBOM attestation found for ${image_name} (${platform_str}), skipping."
+        echo "  [WARN] No CycloneDX SBOM attestation found for ${image_name} (${platform_str}), skipping." >&2
         rm -f "${output_file}"
         return
     fi
 
-    echo "  SBOM saved to ${output_file}"
+    # echo "  SBOM saved to ${output_file}"
     ((SBOM_COUNT++)) || true
 
     local any_impact=0
@@ -120,6 +123,7 @@ check_sbom() {
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+{
 echo "Registry  : ${REGISTRY_HOST}/${REGISTRY_PATH}"
 echo "Deps file : ${DEPS_FILE}"
 echo "Checking  :"
@@ -128,17 +132,17 @@ for i in "${!PKG_NAMES[@]}"; do
 done
 echo ""
 
-echo "Fetching container catalog from ${REGISTRY_HOST}..."
+echo "Fetching container catalog from ${REGISTRY_HOST}..." >&2
 CONTAINERS=$(crane catalog "${REGISTRY_HOST}" 2>/dev/null | grep -E "^${REGISTRY_PATH}/containers") || true
 
 if [ -z "$CONTAINERS" ]; then
-    echo "No containers found matching ^${REGISTRY_PATH}/containers"
+    echo "No containers found matching ^${REGISTRY_PATH}/containers" >&2
     exit 0
 fi
 
-echo "Found containers:"
-echo "$CONTAINERS" | sed 's/^/  /'
-echo ""
+echo "Found containers:" >&2
+echo "$CONTAINERS" | sed 's/^/  /' >&2
+echo "" >&2
 
 while IFS= read -r repo; do
     IMAGE_NAME=$(basename "$repo")
@@ -147,7 +151,7 @@ while IFS= read -r repo; do
     TAGS=$(crane ls "${REGISTRY_HOST}/${repo}" 2>/dev/null | grep -Ev '\.(att|sig)$') || true
 
     if [ -z "$TAGS" ]; then
-        echo "  [WARN] No usable tags found for ${repo}, skipping."
+        echo "  [WARN] No usable tags found for ${repo}, skipping." >&2
         echo ""
         continue
     fi
@@ -156,7 +160,7 @@ while IFS= read -r repo; do
         echo "  Tag: ${tag}"
 
         MANIFEST=$(crane manifest "${REGISTRY_HOST}/${repo}:${tag}" 2>/dev/null) || {
-            echo "  [WARN] Could not fetch manifest for ${repo}:${tag}, skipping."
+            echo "  [WARN] Could not fetch manifest for ${repo}:${tag}, skipping." >&2
             continue
         }
 
@@ -171,11 +175,15 @@ while IFS= read -r repo; do
                 else
                     PLATFORM_STR="${OS}-${ARCH}"
                 fi
+                # Skip unknown-unknown platforms
+                if [[ "$PLATFORM_STR" == *"unknown-unknown"* ]]; then
+                    continue
+                fi
                 check_sbom "$repo" "$IMAGE_NAME" "$DIGEST" "$PLATFORM_STR" "$tag"
             done < <(echo "$MANIFEST" | jq -c '.manifests[]')
         else
             DIGEST=$(crane digest "${REGISTRY_HOST}/${repo}:${tag}" 2>/dev/null) || {
-                echo "  [WARN] Could not get digest for ${repo}:${tag}, skipping."
+                echo "  [WARN] Could not get digest for ${repo}:${tag}, skipping." >&2
                 continue
             }
             check_sbom "$repo" "$IMAGE_NAME" "$DIGEST" "single" "$tag"
@@ -205,3 +213,7 @@ fi
 
 echo ""
 echo "Done."
+} | tee "$REPORT_FILE"
+
+echo ""
+echo "Report saved to: $REPORT_FILE"
